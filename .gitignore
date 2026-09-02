@@ -14,3 +14,4 @@ _book
 *.epub
 *.mobi
 *.pdf
+CLI: gh repo add-collaborator klnkv/army-now-ua USERNAME –permission write
