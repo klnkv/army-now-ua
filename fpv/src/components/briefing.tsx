@@ -1,4 +1,3 @@
-import { Tryzub } from "./tryzub";
 import { retry, startFlight } from "@/game/sim";
 import { useHud } from "@/game/hud-store";
 import { Mark } from "./hud-mark";
@@ -9,17 +8,14 @@ export function Briefing({ onStart }: { onStart: () => void }) {
       <div className="pointer-events-auto hud-panel hud-corners max-h-full w-full min-w-0 max-w-xl overflow-hidden bg-ink/88 p-5 md:p-8">
         <span className="c-tr" />
         <span className="c-bl" />
-        <div className="flex min-w-0 items-center gap-3 md:gap-4">
-          <Tryzub className="h-14 w-10 shrink-0 text-chalk md:h-20 md:w-14" />
-          <div className="min-w-0">
-            <Mark v="ARMY NOW UA" className="block font-hud text-[10px] tracking-[0.32em] text-chalk-dim" />
-            <Mark v="FPV ДРОН" className="block font-display text-3xl tracking-[0.18em] md:text-4xl" />
-            <Mark
-              v="НИЗЬКОПОЛІГОНАЛЬНИЙ ФРОНТ"
-              className="mt-1 block font-hud text-[11px] tracking-[0.12em] text-chalk-dim"
-            />
-            <Mark v="15 СЕК УДАРУ" className="block font-hud text-[11px] tracking-[0.12em] text-chalk-dim" />
-          </div>
+        <div className="min-w-0">
+          <Mark v="ARMY NOW UA" className="block font-hud text-[10px] tracking-[0.32em] text-chalk-dim" />
+          <Mark v="FPV ДРОН" className="block font-display text-3xl tracking-[0.18em] md:text-4xl" />
+          <Mark
+            v="НИЗЬКОПОЛІГОНАЛЬНИЙ ФРОНТ"
+            className="mt-1 block font-hud text-[11px] tracking-[0.12em] text-chalk-dim"
+          />
+          <Mark v="15 СЕК УДАРУ" className="block font-hud text-[11px] tracking-[0.12em] text-chalk-dim" />
         </div>
 
         <blockquote className="mt-5 min-w-0 overflow-hidden border-l border-line/40 pl-3 font-display text-sm leading-snug text-chalk-dim">
