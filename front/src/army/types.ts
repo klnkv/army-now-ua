@@ -8,7 +8,9 @@ export type Screen =
   | "karma"
   | "stats"
   | "hq"
-  | "front";
+  | "front"
+  | "fpv"
+  | "maps";
 export type HqTab = "situation" | "gear" | "squad" | "mission" | "dossier" | "radio";
 export type RoleId = "fighter" | "medic" | "drone" | "comms" | "officer";
 export type PathId = "volunteer" | "bought" | "verified" | "mobilized";
@@ -27,6 +29,19 @@ export type UnitId =
   | "marine"
   | "sapper"
   | "recon";
+export type MapId =
+  | "polygon"
+  | "trench"
+  | "np"
+  | "tankdrome"
+  | "forest"
+  | "range"
+  | "arty"
+  | "coast"
+  | "uav"
+  | "signal"
+  | "aid"
+  | "airdef";
 export type Channel = "platoon" | "medic" | "commander";
 export type EntryStatus = "open" | "bought" | "boosted";
 

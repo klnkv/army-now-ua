@@ -21,23 +21,6 @@ function S({ size = 28, children, ...rest }: P & { children: ReactNode }) {
   );
 }
 
-export function Tryzub({ size = 72, className }: { size?: number; className?: string }) {
-  return (
-    <svg
-      width={size}
-      height={size * 1.35}
-      viewBox="0 0 80 108"
-      fill="currentColor"
-      className={className}
-      aria-hidden
-    >
-      <path d="M40 4c-1 8-8 18-16 28-3 4-8 8-12 10 6 1 12 0 16-4 2 8 4 22 4 36h16c0-14 2-28 4-36 4 4 10 5 16 4-4-2-9-6-12-10C48 22 41 12 40 4z" />
-      <path d="M28 86c2 6 6 10 12 12 6-2 10-6 12-12" fill="none" stroke="currentColor" strokeWidth="3" />
-      <circle cx="40" cy="100" r="6.5" fill="none" stroke="currentColor" strokeWidth="2.4" />
-    </svg>
-  );
-}
-
 export function IconReliable(p: P) {
   return (
     <S {...p}>

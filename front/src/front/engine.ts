@@ -3,7 +3,9 @@ export type FrontHooks = {
   onHq: () => void;
   unit: string;
   path: string;
+  map: string;
   gear: () => Record<string, string>;
+  onScore?: (score: number) => void;
 };
 
 type ImgMap = Record<string, HTMLImageElement>;
@@ -11,11 +13,11 @@ type ImgMap = Record<string, HTMLImageElement>;
 const STEP = 1 / 60;
 const STICK_R = 64;
 const FRONT_R = 0.42;
-/** Maps off while we review hero silhouettes. */
-const SHOW_BG = false;
+/** Maps on: chalk ruins + ground. */
+const SHOW_BG = true;
 const SHOW_EXHIBITS = false;
 /** 2×2 walk sheet: 4 frames. stridePx = pixels per full cycle. */
-const ANIM = { cols: 2, rows: 2, frames: 4, stridePx: 68, idleFps: 1.4 };
+const ANIM = { cols: 2, rows: 2, frames: 4, stridePx: 56, idleFps: 1.4 };
 /** Arcade body for the soldier. Tune these, not magic numbers in step(). */
 const PHYS = {
   maxSpeed: 205,
@@ -67,6 +69,18 @@ const SRC: Record<string, string> = {
   isoRubble: "/sprites/iso-rubble.png",
   isoSoldierWalk: "/sprites/iso-soldier-walk.png",
   isoEnemy: "/sprites/iso-enemy.png",
+  mapPolygon: "/sprites/maps/polygon.jpg",
+  mapTrench: "/sprites/maps/trench.jpg",
+  mapNp: "/sprites/maps/np.jpg",
+  mapTankdrome: "/sprites/maps/tankdrome.jpg",
+  mapForest: "/sprites/maps/forest.jpg",
+  mapRange: "/sprites/maps/range.jpg",
+  mapArty: "/sprites/maps/arty.jpg",
+  mapCoast: "/sprites/maps/coast.jpg",
+  mapUav: "/sprites/maps/uav.jpg",
+  mapSignal: "/sprites/maps/signal.jpg",
+  mapAid: "/sprites/maps/aid.jpg",
+  mapAirdef: "/sprites/maps/airdef.jpg",
 };
 
 export const FRONT_ASSETS = Object.values(SRC);
@@ -83,19 +97,18 @@ type UnitBody = {
 const UNIT_BODY: Record<string, UnitBody> = {
   infantry: {
     sprite: "isoSoldierWalk",
-    size: 54,
-    r: 14,
+    size: 78,
+    r: 16,
     maxSpeed: 205,
     accel: 1650,
-    sheet: { cols: 3, rows: 3, frames: 8, stridePx: 42 },
+    sheet: { cols: 2, rows: 2, frames: 4, stridePx: 56 },
   },
   tank: {
-    sprite: "tankDrive",
-    size: 96,
-    r: 34,
+    sprite: "unitTank",
+    size: 108,
+    r: 36,
     maxSpeed: 128,
     accel: 900,
-    sheet: { cols: 4, rows: 2, frames: 8, stridePx: 46 },
   },
   signal: { sprite: "unitRadio", size: 56, r: 16, maxSpeed: 190, accel: 1500 },
   air: { sprite: "unitF16", size: 84, r: 24, maxSpeed: 280, accel: 2100 },
@@ -109,21 +122,22 @@ const UNIT_BODY: Record<string, UnitBody> = {
   recon: { sprite: "unitRecon", size: 60, r: 16, maxSpeed: 230, accel: 1800 },
 };
 
-const UNIT_MAP: Record<string, string> = {
-  infantry: "mapInfantry",
-  tank: "mapTank",
+const MAP_KEY: Record<string, string> = {
+  polygon: "mapPolygon",
+  trench: "mapTrench",
+  np: "mapNp",
+  tankdrome: "mapTankdrome",
+  forest: "mapForest",
+  range: "mapRange",
+  arty: "mapArty",
+  coast: "mapCoast",
+  uav: "mapUav",
   signal: "mapSignal",
-  air: "mapAir",
-  drone: "mapDrone",
-  mortar: "mapMortar",
-  artillery: "mapArtillery",
+  aid: "mapAid",
   airdef: "mapAirdef",
-  medic: "mapMedic",
-  marine: "mapMarine",
-  sapper: "mapSapper",
-  recon: "mapRecon",
 };
-const AERIAL = new Set(["air", "drone", "airdef"]);
+const FLYING = new Set(["air", "drone"]);
+const HUNTS_AIR = new Set(["air", "drone", "airdef"]);
 
 const HERO_SHOW: { sprite: string; size: number }[] = [
   { sprite: "unitInfantry", size: 70 },
@@ -319,7 +333,19 @@ export class FrontGame {
     this.placeField();
   }
 
+  private flying() {
+    return FLYING.has(this.hooks.unit);
+  }
+
+  private huntsAir() {
+    return HUNTS_AIR.has(this.hooks.unit);
+  }
+
   private placeField() {
+    if (this.flying()) {
+      this.props = [];
+      return;
+    }
     const c = this.world / 2;
     this.props = [
       { x: c - 210, y: c - 240, sprite: "isoRuinA", size: 210, r: 62 },
@@ -510,7 +536,17 @@ export class FrontGame {
       const dx = p.x - e.x;
       const dy = p.y - e.y;
       const d = Math.hypot(dx, dy) || 1;
-      const want = e.kind === "cruiser" ? 70 : e.kind === "fighter" ? 95 : 120;
+      const want = this.huntsAir()
+        ? e.kind === "cruiser"
+          ? 130
+          : e.kind === "fighter"
+            ? 150
+            : 175
+        : e.kind === "cruiser"
+          ? 70
+          : e.kind === "fighter"
+            ? 95
+            : 120;
       e.vx += (dx / d) * want * dt * 3;
       e.vy += (dy / d) * want * dt * 3;
       const sp = Math.hypot(e.vx, e.vy);
@@ -533,7 +569,8 @@ export class FrontGame {
       e.anim += (Math.hypot(e.vx, e.vy) / ANIM.stridePx) * dt;
       e.faceLeft = dx < 0;
       e.flash = Math.max(0, e.flash - dt);
-      if (e.kind === "fighter" && Math.random() < dt * 0.35) this.enemyShot(e);
+      if (e.kind === "fighter" && Math.random() < dt * (this.huntsAir() ? 0.55 : 0.35)) this.enemyShot(e);
+      if (e.kind === "cruiser" && this.huntsAir() && Math.random() < dt * 0.28) this.enemyShot(e);
       if (d < e.r + p.r) {
         const push = (e.r + p.r - d) / PHYS.mass;
         p.x -= (dx / d) * push * 0.4;
@@ -658,7 +695,13 @@ export class FrontGame {
       e.y = p.y - span;
     }
     const roll = Math.random();
-    e.kind = this.wave > 4 && roll > 0.78 ? "cruiser" : this.wave > 2 && roll > 0.55 ? "fighter" : "scout";
+    if (this.hooks.unit === "airdef") {
+      e.kind = roll > 0.62 ? "cruiser" : roll > 0.28 ? "fighter" : "scout";
+    } else if (this.flying()) {
+      e.kind = roll > 0.72 ? "cruiser" : roll > 0.4 ? "fighter" : "scout";
+    } else {
+      e.kind = this.wave > 4 && roll > 0.78 ? "cruiser" : this.wave > 2 && roll > 0.55 ? "fighter" : "scout";
+    }
     e.hp = e.kind === "cruiser" ? 5 : e.kind === "fighter" ? 3 : 1;
     e.r = e.kind === "cruiser" ? 24 : e.kind === "fighter" ? 18 : 15;
     e.vx = 0;
@@ -681,6 +724,7 @@ export class FrontGame {
     if (e.hp <= 0) {
       e.alive = false;
       this.score += e.kind === "cruiser" ? 300 : e.kind === "fighter" ? 150 : 100;
+      this.hooks.onScore?.(this.score);
       this.emitFx(e.x, e.y, "boom", 0.45, e.kind === "cruiser" ? 1.6 : 1);
       this.emitFx(e.x, e.y, "pop", 0.7, 1);
       if (Math.random() < 0.16) {
@@ -851,13 +895,13 @@ export class FrontGame {
     for (const e of this.enemies) {
       if (!e.alive) continue;
       const q = this.w2s(e.x, e.y);
-      const sz = e.kind === "cruiser" ? 52 : e.kind === "fighter" ? 42 : 34;
+      const art = this.enemyArt(e);
       sprites.push({
         y: e.y,
         z: 4,
         run: () => {
           ctx.globalAlpha = e.flash > 0 ? 0.45 : 1;
-          this.blit("isoEnemy", q.x, q.y, sz, sz, e.faceLeft);
+          this.blit(art.key, q.x, q.y, art.size, art.size, e.faceLeft);
           ctx.globalAlpha = 1;
         },
       });
@@ -887,25 +931,69 @@ export class FrontGame {
     if (this.paused || this.over) this.drawMenu();
   }
 
+  private enemyArt(e: Actor): { key: string; size: number } {
+    if (!this.huntsAir()) {
+      return { key: "isoEnemy", size: e.kind === "cruiser" ? 52 : e.kind === "fighter" ? 42 : 34 };
+    }
+    if (this.hooks.unit === "airdef" && e.kind === "cruiser") {
+      return { key: "unitF16", size: 90 };
+    }
+    return { key: "unitDrone", size: e.kind === "cruiser" ? 72 : e.kind === "fighter" ? 56 : 42 };
+  }
+
   private drawGround() {
-    const im = this.imgs.isoGround;
+    if (this.flying()) {
+      this.drawSky();
+      return;
+    }
+    const key = MAP_KEY[this.hooks.map] ?? "mapPolygon";
+    const im = this.imgs[key] ?? this.imgs.isoGround;
     const { ctx, w, h } = this;
-    const tw = 320;
-    const th = 320;
     if (!im || !im.naturalWidth) {
       ctx.fillStyle = "#1a1a1a";
       ctx.fillRect(0, 0, w, h);
       return;
     }
-    const ox = -(((this.camX) % tw) + tw) % tw;
-    const oy = -(((this.camY) % th) + th) % th;
+    const cover = Math.max(w / im.naturalWidth, h / im.naturalHeight);
+    const scale = cover * 2.15;
+    const tw = im.naturalWidth * scale;
+    const th = im.naturalHeight * scale;
+    const ox = -(((this.camX * 0.48) % tw) + tw) % tw;
+    const oy = -(((this.camY * 0.48) % th) + th) % th;
     for (let x = ox - tw; x < w + tw; x += tw) {
       for (let y = oy - th; y < h + th; y += th) {
-        ctx.drawImage(im, x, y, tw, th);
+        ctx.drawImage(im, 0, 0, im.naturalWidth, im.naturalHeight, x, y, tw, th);
       }
     }
-    ctx.fillStyle = "rgba(0,0,0,0.22)";
+  }
+
+  private drawSky() {
+    const { ctx, w, h } = this;
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, "#0a121c");
+    g.addColorStop(0.42, "#15202c");
+    g.addColorStop(1, "#243240");
+    ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#efe8d8";
+    for (const s of this.specks) {
+      const x = ((s.x - this.camX * 0.1) % w + w) % w;
+      const y = ((s.y - this.camY * 0.1) % h + h) % h;
+      ctx.globalAlpha = s.a * 1.6;
+      ctx.fillRect(x, y, s.s, s.s);
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "rgba(239,232,216,0.09)";
+    const ox = -(((this.camX * 0.07) % 480) + 480) % 480;
+    const oy = -(((this.camY * 0.04) % 220) + 220) % 220;
+    for (let i = -1; i < 8; i++) {
+      ctx.beginPath();
+      ctx.ellipse(ox + i * 240, 70 + oy + (i % 3) * 54, 150, 26, 0.12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(ox + i * 260 + 80, h * 0.62 + oy * 0.5, 180, 22, -0.08, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   private drawDrop(kind: Drop["kind"], x: number, y: number) {
@@ -940,25 +1028,25 @@ export class FrontGame {
     const fam = this.family();
     const faceLeft = body.sheet ? pl.vx < -12 || (Math.abs(pl.vx) <= 12 && Math.cos(pl.aim) < 0) : Math.cos(pl.aim) < 0;
     if (fam === "soldier") {
-      this.blitUnit("isoSoldierWalk", x, y, 54, faceLeft, pl.anim, {
-        cols: 3,
-        rows: 3,
-        frames: 8,
-        stridePx: 42,
+      this.blitUnit("isoSoldierWalk", x, y, body.size, faceLeft, pl.anim, {
+        cols: 2,
+        rows: 2,
+        frames: 4,
+        stridePx: 56,
       });
       return;
     }
     if (fam === "tank") {
-      this.blitUnit("tankDrive", x, y, body.size, faceLeft, pl.anim, body.sheet);
+      this.blitUnit("unitTank", x, y, body.size, faceLeft, 0);
       this.strokeTankKit(x, y, body.size, faceLeft);
       return;
     }
     if (fam === "drone") {
-      this.blitUnit("unitDrone", x, y, body.size, faceLeft, 0);
+      this.blitUnit("unitDrone", x, y, body.size, faceLeft, 0, undefined, false);
       this.strokeDroneKit(x, y, body.size, faceLeft);
       return;
     }
-    this.blitUnit(body.sprite, x, y, body.size, faceLeft, pl.anim, body.sheet);
+    this.blitUnit(body.sprite, x, y, body.size, faceLeft, pl.anim, body.sheet, !this.flying());
   }
 
   private strokeSoldierKit(x: number, y: number, size: number, flip: boolean) {
@@ -1090,9 +1178,8 @@ export class FrontGame {
 
   private drawParallax() {
     const { ctx, w, h } = this;
-    const unit = this.hooks.unit || "infantry";
-    const mapKey = UNIT_MAP[unit] ?? "mapInfantry";
-    const aerial = AERIAL.has(unit);
+    const mapKey = MAP_KEY[this.hooks.map] ?? "mapPolygon";
+    const aerial = this.flying();
     const layers: { key: string; k: number; a: number }[] = aerial
       ? [
           { key: mapKey, k: 0.08, a: 0.58 },
@@ -1130,17 +1217,20 @@ export class FrontGame {
     flip: boolean,
     anim = 0,
     sheet?: { cols: number; rows: number; frames: number; stridePx: number },
+    shadow = true,
   ) {
     const im = this.imgs[key];
     const { ctx } = this;
     ctx.save();
     ctx.translate(x, y);
     if (flip) ctx.scale(-1, 1);
-    ctx.strokeStyle = "rgba(239,232,216,0.32)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.ellipse(0, size * 0.28, size * 0.32, size * 0.1, 0, 0, Math.PI * 2);
-    ctx.stroke();
+    if (shadow) {
+      ctx.strokeStyle = "rgba(239,232,216,0.32)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(0, size * 0.28, size * 0.32, size * 0.1, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     if (im && im.complete && im.naturalWidth) {
       if (sheet) {
         const fw = im.naturalWidth / sheet.cols;
@@ -1334,7 +1424,21 @@ declare global {
       getSpeed: () => number;
       getX?: () => number;
       getY?: () => number;
-      setKeys: (codes: string[]) => void;
+      setSteer?: (v: number) => void;
+      setKeys?: (codes: string[]) => void;
+      setPose?: (p: { x?: number; y?: number; z?: number; yaw?: number; pitch?: number }) => void;
+      getUnits?: () => { id: string; kind: string; x: number; y: number; z: number; yaw: number }[];
+      getTouch?: () => { mx: number; my: number; lx: number; ly: number };
+    };
+    __gameReady?: boolean;
+    __glStats?: () => {
+      calls: number;
+      triangles: number;
+      points: number;
+      geometries: number;
+      textures: number;
+      dpr: number;
+      drawing: { w: number; h: number };
     };
   }
 }

@@ -16,6 +16,15 @@
   --color-locked: #5b8ec4;
   --color-danger: #c4453a;
   --color-ok: #7d9a72;
+  --color-ink: #080808;
+  --color-ink-2: #111114;
+  --color-chalk: #efe8d8;
+  --color-chalk-dim: #8a8378;
+  --color-chalk-mute: #5c574f;
+  --color-strike: #c41e1e;
+  --color-line: #efe8d838;
+  --font-display: "Alumni Sans", "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
+  --font-hud: "Share Tech Mono", ui-monospace, monospace;
   --font-sans: "Alumni Sans", "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Share Tech Mono", ui-monospace, monospace;
   --radius-xs: 2px;
@@ -216,24 +225,34 @@ button *,
 input.cs-input {
   -webkit-appearance: none;
   appearance: none;
-  position: relative;
   display: block;
   box-sizing: border-box;
+  position: static;
   margin: 0;
-  border: 0 !important;
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  padding: 0 12px 0 48px;
+  border: 1.5px solid var(--color-border-strong);
   outline: none;
   background: transparent;
-  padding: 0 !important;
-  width: 100%;
-  height: 48px !important;
-  min-height: 48px !important;
-  max-height: 48px !important;
-  line-height: 48px !important;
+  line-height: 45px;
   font-size: 16px !important;
-  font-family: inherit;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #efe8d8;
   caret-color: #efe8d8;
+  overflow: hidden;
+  white-space: nowrap;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+input.cs-input::placeholder {
+  color: #5c574f;
+  letter-spacing: 0.16em;
+  line-height: 45px;
+  opacity: 1;
 }

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { FrontGame } from "./engine";
 import { useArmy } from "@/army/store";
+import { FPV_COST } from "@/army/data";
+import { I18N } from "@/army/i18n";
 import { unlockAudio } from "@/army/audio";
 
 const HUD = {
@@ -52,10 +54,14 @@ export function Front() {
   const lang = useArmy((s) => s.lang);
   const go = useArmy((s) => s.go);
   const unit = useArmy((s) => s.unit) ?? "infantry";
+  const mapId = useArmy((s) => s.mapId);
   const path = useArmy((s) => s.path);
   const gear = useArmy((s) => s.gear);
+  const addPoints = useArmy((s) => s.addPoints);
+  const points = useArmy((s) => s.points);
   const gearRef = useRef(gear);
   gearRef.current = gear;
+  const bankedRef = useRef(0);
   const [hud, setHud] = useState<Hud>({
     score: 0,
     wave: 1,
@@ -73,12 +79,21 @@ export function Front() {
     const canvas = ref.current;
     if (!canvas) return;
     unlockAudio();
+    bankedRef.current = 0;
     const game = new FrontGame(canvas, {
       lang,
       unit,
       path,
+      map: mapId,
       gear: () => gearRef.current,
       onHq: () => go("hq"),
+      onScore: (score) => {
+        const d = score - bankedRef.current;
+        if (d > 0) {
+          addPoints(d);
+          bankedRef.current = score;
+        }
+      },
     });
     gameRef.current = game;
     void game.start();
@@ -90,10 +105,11 @@ export function Front() {
       game.destroy();
       gameRef.current = null;
     };
-  }, [lang, go, unit, path]);
+  }, [lang, go, unit, path, mapId, addPoints]);
 
   const ua = lang === "ua" || lang === "ru";
   const magFill = Math.max(0, Math.min(1, hud.mag / hud.magMax));
+  const sector = I18N[lang].maps[mapId]?.name ?? (ua ? "Фронт" : "Front");
 
   return (
     <div className="relative h-full w-full bg-black">
@@ -105,11 +121,11 @@ export function Front() {
       <div className="pointer-events-none absolute inset-0 select-none text-[#efe8d8]">
         <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent pt-[max(0.4rem,env(safe-area-inset-top))] pb-8">
           <p className="text-center text-[9px] tracking-[0.38em] text-white/50 uppercase">Army Now</p>
-          <h1 className="text-center text-2xl font-semibold tracking-[0.28em] uppercase">{ua ? "Фронт" : "Front"}</h1>
+          <h1 className="text-center text-2xl font-semibold tracking-[0.28em] uppercase">{sector}</h1>
           <p className="mt-1 text-center text-3xl font-semibold tabular-nums">{hud.score}</p>
           <p className="text-center text-sm tracking-[0.2em] text-white/70">{hud.clock}</p>
           <p className="text-center text-[10px] tracking-[0.22em] text-white/45 uppercase">
-            {ua ? "Хвиля" : "Wave"} {hud.wave} · {hud.score > 0 ? hud.score : 600}
+            {ua ? "Хвиля" : "Wave"} {hud.wave} · FPV {Math.min(points, FPV_COST)}/{FPV_COST}
           </p>
         </div>
 

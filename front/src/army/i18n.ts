@@ -1,4 +1,4 @@
-import type { GearId, Lang, Origin, PathId, RoleId, UnitId } from "./types";
+import type { GearId, Lang, MapId, Origin, PathId, RoleId, UnitId } from "./types";
 
 type Pack = {
   loading: string;
@@ -44,6 +44,10 @@ type Pack = {
   members: string;
   openChannel: string;
   toFront: string;
+  toFpv: string;
+  fpvNeed: string;
+  fpvReady: string;
+  points: string;
   toHq: string;
   ptt: string;
   listening: string;
@@ -85,6 +89,9 @@ type Pack = {
   gearSpec: Record<GearId, string>;
   origin: Record<Origin, string>;
   units: Record<UnitId, { name: string; blurb: string; extra: string }>;
+  maps: Record<MapId, { name: string; blurb: string }>;
+  mapTitle: string;
+  mapSub: string;
   unitHint: string;
   airWest: string;
   airEast: string;
@@ -113,8 +120,8 @@ const ua: Pack = {
   gear: "Екіпіровка",
   recv: "Статус отримання",
   roleKit: "Комплект ролі",
-  startPath: "Стартовий шлях",
-  gearNote: "Екіпіровка визначає роль, допуск і публічний статус.",
+  startPath: "Як потратив",
+  gearNote: "Починаєш без екіпіровки. Слоти ставиш сам.",
   unitTitle: "Вибір підрозділу",
   unitSub: "Обери підрозділ, у якому хочеш служити.",
   founded: "Заснована",
@@ -158,6 +165,10 @@ const ua: Pack = {
   members: "Учасники",
   openChannel: "Відкрити канал загону",
   toFront: "На фронт",
+  toFpv: "FPV виліт",
+  fpvNeed: "Набери 600 очок на фронті — один виліт",
+  fpvReady: "Виліт доступний",
+  points: "Очки",
   toHq: "Штаб",
   ptt: "Натисни і говори · 3 с",
   listening: "Слухаю",
@@ -292,6 +303,22 @@ const ua: Pack = {
     },
   },
   unitHint: "Літак ВПС залежить від стартового шляху: доброволець — F-16, мобілізація — MiG-29.",
+  mapTitle: "Сектор БЗВП",
+  mapSub: "Офіцерська учебка. Обери карту перед виходом.",
+  maps: {
+    polygon: { name: "Полігон", blurb: "Відкрите поле, базовий курс" },
+    trench: { name: "Траншея", blurb: "Окоп, хід сполучення" },
+    np: { name: "Населений пункт", blurb: "Руїни, штурм будинку" },
+    tankdrome: { name: "Танкодром", blurb: "Гусениця, вогонь з місця" },
+    forest: { name: "Лісосмуга", blurb: "Розвідка, маскування" },
+    range: { name: "Стрілецький рубіж", blurb: "Вогонь, міномет" },
+    arty: { name: "Вогнева позиція", blurb: "Артилерія, батарея" },
+    coast: { name: "Узбережжя", blurb: "Морпіх, висадка" },
+    uav: { name: "Зона БПЛА", blurb: "Дрон, спостереження" },
+    signal: { name: "Вузол зв'язку", blurb: "Рація, ретранслятор" },
+    aid: { name: "Медпункт", blurb: "Евакуація, стабпункт" },
+    airdef: { name: "Рубіж ППО", blurb: "ПЗРК, повітряна ціль" },
+  },
   airWest: "F-16",
   airEast: "MiG-29",
   channels: { platoon: "Взвод", medic: "Медик", commander: "Командир" },
@@ -318,8 +345,8 @@ const en: Pack = {
   gear: "Kit",
   recv: "Acquisition",
   roleKit: "Role kit",
-  startPath: "Starting path",
-  gearNote: "Kit defines role, access and public status.",
+  startPath: "How spent",
+  gearNote: "You start with no kit. You fill the slots yourself.",
   unitTitle: "Choose a unit",
   unitSub: "Pick the formation you want to serve in.",
   founded: "Founded",
@@ -358,6 +385,10 @@ const en: Pack = {
   members: "Roster",
   openChannel: "Open squad channel",
   toFront: "To the front",
+  toFpv: "FPV sortie",
+  fpvNeed: "Score 600 on the front for one sortie",
+  fpvReady: "Sortie ready",
+  points: "Points",
   toHq: "HQ",
   ptt: "Hold to talk · 3 s",
   listening: "Listening",
@@ -443,6 +474,22 @@ const en: Pack = {
     recon: { name: "Recon", blurb: "Scout, observer, sniper", extra: "Glass. Shadow. Grid." },
   },
   unitHint: "Air-force airframe follows your starting path: volunteer — F-16, mobilized — MiG-29.",
+  mapTitle: "BZVP sector",
+  mapSub: "Officer school. Pick a map before you go.",
+  maps: {
+    polygon: { name: "Range", blurb: "Open field, basic course" },
+    trench: { name: "Trench", blurb: "Ditch, communication trench" },
+    np: { name: "Built-up area", blurb: "Ruins, house assault" },
+    tankdrome: { name: "Tank range", blurb: "Tracks, fire from halt" },
+    forest: { name: "Tree line", blurb: "Recon, concealment" },
+    range: { name: "Firing line", blurb: "Small arms, mortar" },
+    arty: { name: "Gun position", blurb: "Artillery battery" },
+    coast: { name: "Coast", blurb: "Marines, landing" },
+    uav: { name: "UAV zone", blurb: "Drone, overwatch" },
+    signal: { name: "Signal node", blurb: "Radio, relay" },
+    aid: { name: "Aid post", blurb: "Evac, casualty" },
+    airdef: { name: "AD line", blurb: "MANPAD, air target" },
+  },
   airWest: "F-16",
   airEast: "MiG-29",
   channels: { platoon: "Platoon", medic: "Medic", commander: "Commander" },
@@ -469,8 +516,8 @@ const ru: Pack = {
   gear: "Экипировка",
   recv: "Статус получения",
   roleKit: "Комплект роли",
-  startPath: "Стартовый путь",
-  gearNote: "Экипировка определяет роль, допуск и публичный статус.",
+  startPath: "Как потратил",
+  gearNote: "Начинаешь без экипировки. Слоты ставишь сам.",
   unitTitle: "Выбор подразделения",
   unitSub: "Выбери подразделение, в котором хочешь служить.",
   founded: "Основана",
@@ -509,6 +556,10 @@ const ru: Pack = {
   members: "Участники",
   openChannel: "Открыть канал отряда",
   toFront: "На фронт",
+  toFpv: "FPV вылет",
+  fpvNeed: "Набери 600 очков на фронте — один вылет",
+  fpvReady: "Вылет доступен",
+  points: "Очки",
   toHq: "Штаб",
   ptt: "Нажми и говори · 3 с",
   listening: "Слушаю",
@@ -594,6 +645,22 @@ const ru: Pack = {
     recon: { name: "Разведка", blurb: "Разведчик, наблюдатель, снайпер", extra: "Бинокль. Тень. Координата." },
   },
   unitHint: "Самолёт ВВС зависит от стартового пути: доброволец — F-16, мобилизация — MiG-29.",
+  mapTitle: "Сектор БЗВП",
+  mapSub: "Офицерская учебка. Выбери карту перед выходом.",
+  maps: {
+    polygon: { name: "Полигон", blurb: "Открытое поле, базовый курс" },
+    trench: { name: "Траншея", blurb: "Окоп, ход сообщения" },
+    np: { name: "Населённый пункт", blurb: "Руины, штурм дома" },
+    tankdrome: { name: "Танкодром", blurb: "Гусеница, огонь с места" },
+    forest: { name: "Лесополоса", blurb: "Разведка, маскировка" },
+    range: { name: "Стрелковый рубеж", blurb: "Огонь, миномёт" },
+    arty: { name: "Огневая позиция", blurb: "Артиллерия, батарея" },
+    coast: { name: "Побережье", blurb: "Морпех, высадка" },
+    uav: { name: "Зона БПЛА", blurb: "Дрон, наблюдение" },
+    signal: { name: "Узел связи", blurb: "Рация, ретранслятор" },
+    aid: { name: "Медпункт", blurb: "Эвакуация" },
+    airdef: { name: "Рубеж ПВО", blurb: "ПЗРК, воздушная цель" },
+  },
   airWest: "F-16",
   airEast: "MiG-29",
   channels: { platoon: "Взвод", medic: "Медик", commander: "Командир" },
@@ -620,8 +687,8 @@ const pl: Pack = {
   gear: "Wyposażenie",
   recv: "Status uzyskania",
   roleKit: "Zestaw roli",
-  startPath: "Ścieżka startowa",
-  gearNote: "Wyposażenie określa rolę, dostęp i status publiczny.",
+  startPath: "Jak wydał",
+  gearNote: "Zaczynasz bez wyposażenia. Sloty ustawiasz sam.",
   unitTitle: "Wybór pododdziału",
   unitSub: "Wybierz jednostkę, w której chcesz służyć.",
   founded: "Założona",
@@ -660,6 +727,10 @@ const pl: Pack = {
   members: "Uczestnicy",
   openChannel: "Otwórz kanał oddziału",
   toFront: "Na front",
+  toFpv: "Wylot FPV",
+  fpvNeed: "Zbierz 600 pkt na froncie — jeden wylot",
+  fpvReady: "Wylot dostępny",
+  points: "Punkty",
   toHq: "Sztab",
   ptt: "Przytrzymaj i mów · 3 s",
   listening: "Słucham",
@@ -745,6 +816,22 @@ const pl: Pack = {
     recon: { name: "Zwiad", blurb: "Zwiadowca, obserwator, snajper", extra: "Lornetka. Cień. Siatka." },
   },
   unitHint: "Samolot sił powietrznych zależy od ścieżki: ochotnik — F-16, mobilizacja — MiG-29.",
+  mapTitle: "Sektor BZWP",
+  mapSub: "Szkoła oficerska. Wybierz mapę przed wyjściem.",
+  maps: {
+    polygon: { name: "Poligon", blurb: "Otwarte pole, kurs podstawowy" },
+    trench: { name: "Okop", blurb: "Rów, łącznik" },
+    np: { name: "Miejscowość", blurb: "Ruiny, szturm domu" },
+    tankdrome: { name: "Czołgodrom", blurb: "Gąsienice, ogień z miejsca" },
+    forest: { name: "Las", blurb: "Zwiad, maskowanie" },
+    range: { name: "Linia ognia", blurb: "Broń strzelecka, moździerz" },
+    arty: { name: "Stanowisko ogniowe", blurb: "Artyleria" },
+    coast: { name: "Wybrzeże", blurb: "Piechota morska" },
+    uav: { name: "Strefa BSP", blurb: "Dron, obserwacja" },
+    signal: { name: "Węzeł łączności", blurb: "Radio" },
+    aid: { name: "Punkt medyczny", blurb: "Ewakuacja" },
+    airdef: { name: "Linia OPL", blurb: "PZR, cel powietrzny" },
+  },
   airWest: "F-16",
   airEast: "MiG-29",
   channels: { platoon: "Pluton", medic: "Medyk", commander: "Dowódca" },

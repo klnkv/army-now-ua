@@ -1,6 +1,9 @@
-import type { Channel, ChatMsg, GearId, Mission, Origin, PathId, RoleId, Stats, UnitId } from "./types";
+import type { Channel, ChatMsg, GearId, MapId, Mission, Origin, PathId, RoleId, Stats, UnitId } from "./types";
 
 export const GEAR_IDS: GearId[] = ["helm", "armor", "radio", "pack", "roleItem", "public"];
+
+/** Front score needed to unlock one FPV sortie. */
+export const FPV_COST = 600;
 
 export const DEFAULT_STATS: Stats = { trust: 54, reputation: 41, stress: 22, authority: 18 };
 
@@ -41,6 +44,29 @@ export function isUnitId(v: unknown): v is UnitId {
   return typeof v === "string" && UNITS.some((u) => u.id === v);
 }
 
+export const MAPS: { id: MapId; art: string; n: number }[] = [
+  { id: "polygon", art: "/sprites/maps/polygon.jpg", n: 1 },
+  { id: "trench", art: "/sprites/maps/trench.jpg", n: 2 },
+  { id: "np", art: "/sprites/maps/np.jpg", n: 3 },
+  { id: "tankdrome", art: "/sprites/maps/tankdrome.jpg", n: 4 },
+  { id: "forest", art: "/sprites/maps/forest.jpg", n: 5 },
+  { id: "range", art: "/sprites/maps/range.jpg", n: 6 },
+  { id: "arty", art: "/sprites/maps/arty.jpg", n: 7 },
+  { id: "coast", art: "/sprites/maps/coast.jpg", n: 8 },
+  { id: "uav", art: "/sprites/maps/uav.jpg", n: 9 },
+  { id: "signal", art: "/sprites/maps/signal.jpg", n: 10 },
+  { id: "aid", art: "/sprites/maps/aid.jpg", n: 11 },
+  { id: "airdef", art: "/sprites/maps/airdef.jpg", n: 12 },
+];
+
+export function isMapId(v: unknown): v is MapId {
+  return typeof v === "string" && MAPS.some((m) => m.id === v);
+}
+
+export function mapArt(id: MapId): string {
+  return MAPS.find((m) => m.id === id)?.art ?? MAPS[0].art;
+}
+
 export const ROLE_GEAR: Record<RoleId, GearId[]> = {
   fighter: ["helm", "armor", "radio"],
   medic: ["helm", "armor", "radio", "roleItem"],
@@ -49,9 +75,8 @@ export const ROLE_GEAR: Record<RoleId, GearId[]> = {
   officer: ["helm", "radio", "pack"],
 };
 
-export function originsForPath(path: PathIdLike, role: RoleId): Record<GearId, Origin> {
-  const kit = new Set(ROLE_GEAR[role]);
-  const all: Record<GearId, Origin> = {
+export function emptyGear(): Record<GearId, Origin> {
+  return {
     helm: "none",
     armor: "none",
     radio: "none",
@@ -59,6 +84,11 @@ export function originsForPath(path: PathIdLike, role: RoleId): Record<GearId, O
     roleItem: "none",
     public: "none",
   };
+}
+
+export function originsForPath(path: PathIdLike, role: RoleId): Record<GearId, Origin> {
+  const kit = new Set(ROLE_GEAR[role]);
+  const all = emptyGear();
   const paint = (o: Origin) => {
     for (const id of GEAR_IDS) {
       if (kit.has(id) || id === "public") all[id] = o;

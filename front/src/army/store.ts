@@ -1,11 +1,12 @@
 import { create } from "zustand";
-import { DEFAULT_STATS, LINES, SQUAD, UNITS, isUnitId, originsForPath } from "./data";
+import { DEFAULT_STATS, FPV_COST, LINES, SQUAD, UNITS, emptyGear, isMapId, isUnitId } from "./data";
 import type {
   Channel,
   ChatMsg,
   GearId,
   HqTab,
   Lang,
+  MapId,
   Origin,
   PathId,
   RoleId,
@@ -24,6 +25,7 @@ export type ArmyState = {
   role: RoleId;
   path: PathId;
   unit: UnitId | null;
+  mapId: MapId;
   gear: Record<GearId, Origin>;
   stats: Stats;
   onboarded: boolean;
@@ -36,6 +38,9 @@ export type ArmyState = {
   lastOutcome: string | null;
   mail: number;
   clock: string;
+  points: number;
+  fpvTicket: boolean;
+  kitV: number;
 };
 
 type Actions = {
@@ -44,6 +49,7 @@ type Actions = {
   setRole: (role: RoleId) => void;
   setPath: (path: PathId) => void;
   setUnit: (unit: UnitId) => void;
+  setMap: (id: MapId) => void;
   setGear: (id: GearId, origin: Origin) => void;
   go: (screen: Screen) => void;
   setTab: (tab: HqTab) => void;
@@ -59,6 +65,9 @@ type Actions = {
   setPtt: (v: boolean) => void;
   toggleMute: () => void;
   resetProfile: () => void;
+  addPoints: (n: number) => void;
+  spendFpv: () => boolean;
+  clearFpvTicket: () => void;
 };
 
 function stamp(): string {
@@ -90,7 +99,8 @@ const initial = (): ArmyState => ({
   role: "fighter",
   path: "volunteer",
   unit: null,
-  gear: originsForPath("volunteer", "fighter"),
+  mapId: "polygon",
+  gear: emptyGear(),
   stats: { ...DEFAULT_STATS },
   onboarded: false,
   howStep: 0,
@@ -102,6 +112,9 @@ const initial = (): ArmyState => ({
   lastOutcome: null,
   mail: 1,
   clock: stamp(),
+  points: 0,
+  fpvTicket: false,
+  kitV: 2,
 });
 
 function load(): ArmyState {
@@ -119,7 +132,9 @@ function load(): ArmyState {
     let unit = p.unit;
     if (typeof unit === "string" && unit in legacy) unit = legacy[unit];
     if (!isUnitId(unit)) unit = null;
-    return { ...base, ...p, unit, screen: "boot", ptt: false, lastOutcome: null, clock: stamp() };
+    const mapId = isMapId(p.mapId) ? p.mapId : "polygon";
+    const gear = Number(p.kitV) === 2 && p.gear ? { ...emptyGear(), ...p.gear } : emptyGear();
+    return { ...base, ...p, unit, mapId, gear, kitV: 2, screen: "boot", ptt: false, lastOutcome: null, clock: stamp(), points: Math.max(0, Number(p.points) || 0), fpvTicket: false };
   } catch {
     return base;
   }
@@ -129,17 +144,23 @@ export const useArmy = create<ArmyState & Actions>((set, get) => ({
   ...load(),
   setLang: (lang) => set({ lang }),
   setCallsign: (callsign) => set({ callsign: callsign.slice(0, 16).toUpperCase() }),
-  setRole: (role) => set({ role, gear: originsForPath(get().path, role) }),
-  setPath: (path) => set({ path, gear: originsForPath(path, get().role) }),
+  setRole: (role) => set({ role }),
+  setPath: (path) => set({ path }),
   setUnit: (unit) => {
     const spec = UNITS.find((u) => u.id === unit);
     const role = spec?.role ?? get().role;
-    set({ unit, role, gear: originsForPath(get().path, role) });
+    set({ unit, role });
   },
+  setMap: (mapId) => set({ mapId }),
   setGear: (id, origin) => set({ gear: { ...get().gear, [id]: origin } }),
   go: (screen) => set({ screen }),
   setTab: (hqTab) => set((s) => ({ hqTab, mail: hqTab === "mission" ? 0 : s.mail })),
-  finishOnboard: () => set({ onboarded: true, screen: "front", hqTab: "situation" }),
+  finishOnboard: () =>
+    set({
+      onboarded: true,
+      screen: "maps",
+      hqTab: "situation",
+    }),
   applyDelta: (d) =>
     set((s) => {
       const stats = { ...s.stats };
@@ -178,6 +199,18 @@ export const useArmy = create<ArmyState & Actions>((set, get) => ({
   },
   setPtt: (ptt) => set({ ptt }),
   toggleMute: () => set((s) => ({ muted: !s.muted })),
+  addPoints: (n) => {
+    if (!Number.isFinite(n) || n <= 0) return;
+    set((s) => ({ points: s.points + Math.round(n) }));
+  },
+  spendFpv: () => {
+    const s = get();
+    if (s.fpvTicket) return true;
+    if (s.points < FPV_COST) return false;
+    set({ points: s.points - FPV_COST, fpvTicket: true });
+    return true;
+  },
+  clearFpvTicket: () => set({ fpvTicket: false }),
   resetProfile: () => {
     if (typeof window !== "undefined") {
       try {
@@ -200,6 +233,7 @@ useArmy.subscribe((s) => {
     role: s.role,
     path: s.path,
     unit: s.unit,
+    mapId: s.mapId,
     gear: s.gear,
     stats: s.stats,
     onboarded: s.onboarded,
@@ -212,6 +246,9 @@ useArmy.subscribe((s) => {
     lastOutcome: s.lastOutcome,
     mail: s.mail,
     clock: s.clock,
+    points: s.points,
+    fpvTicket: false,
+    kitV: 2,
   };
   try {
     localStorage.setItem(KEY, JSON.stringify(snap));

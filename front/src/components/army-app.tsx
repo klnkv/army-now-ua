@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerE
 import { Mail, Settings, LogOut } from "lucide-react";
 import * as Ic from "@/army/icons";
 import { I18N } from "@/army/i18n";
-import { GEAR_IDS, QUICK, QUOTE_BY, QUOTE_UA, ROLE_GEAR, SQUAD, UNITS, heroArt, missionsFor } from "@/army/data";
+import { GEAR_IDS, QUICK, QUOTE_BY, QUOTE_UA, ROLE_GEAR, SQUAD, UNITS, MAPS, FPV_COST, heroArt, missionsFor } from "@/army/data";
 import { click, rx, squelch, unlockAudio } from "@/army/audio";
 import { startVoice, speechLang, VOICE_MAX_MS, type VoiceHandle } from "@/army/voice";
 import { useArmy } from "@/army/store";
 import { ChalkBtn, Dot, LetterMark, OriginBox, Panel, Rule, StatBar } from "@/army/ui";
 import { Front } from "@/front/Front";
 import { FRONT_ASSETS } from "@/front/engine";
+import { GameApp } from "@/fpv/game-app";
 import type { Channel, GearId, Lang, Origin, PathId, RoleId } from "@/army/types";
 
 const GITHUB_URL = "https://github.com/klnkv/army-now-ua";
@@ -27,6 +28,19 @@ function SlotArt({ id }: { id: GearId }) {
   return <img src={SLOT_ART[id]} alt="" className="h-10 w-10 object-contain" draggable={false} />;
 }
 
+function combatScreen() {
+  return "maps" as const;
+}
+
+function launchFpv() {
+  const st = useArmy.getState();
+  if (!st.spendFpv()) {
+    st.go("maps");
+    return;
+  }
+  st.go("fpv");
+}
+
 export function ArmyApp() {
   const screen = useArmy((s) => s.screen);
   const go = useArmy((s) => s.go);
@@ -36,43 +50,60 @@ export function ArmyApp() {
     const main = mainRef.current;
     if (!main) return;
     const pin = () => {
+      const vv = window.visualViewport;
       main.style.position = "fixed";
-      main.style.left = "0px";
-      main.style.top = "0px";
-      main.style.right = "0px";
-      main.style.bottom = "0px";
-      main.style.width = "100%";
-      main.style.height = "100%";
       main.style.transform = "none";
+      if (vv) {
+        const top = Math.round(vv.offsetTop);
+        const left = Math.round(vv.offsetLeft);
+        main.style.top = `${top}px`;
+        main.style.left = `${left}px`;
+        main.style.width = `${Math.round(vv.width)}px`;
+        main.style.height = `${Math.round(vv.height)}px`;
+        main.style.right = "auto";
+        main.style.bottom = "auto";
+      } else {
+        main.style.top = "0px";
+        main.style.left = "0px";
+        main.style.right = "0px";
+        main.style.bottom = "0px";
+        main.style.width = "100%";
+        main.style.height = "100%";
+      }
+      if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
     };
     pin();
     window.addEventListener("resize", pin);
+    window.addEventListener("orientationchange", pin);
     window.visualViewport?.addEventListener("resize", pin);
+    window.visualViewport?.addEventListener("scroll", pin);
     return () => {
       window.removeEventListener("resize", pin);
+      window.removeEventListener("orientationchange", pin);
       window.visualViewport?.removeEventListener("resize", pin);
+      window.visualViewport?.removeEventListener("scroll", pin);
     };
   }, []);
 
   useEffect(() => {
     const el = document.activeElement as HTMLElement | null;
     if (el && el.tagName === "INPUT") el.blur();
-    const main = mainRef.current;
-    if (main) {
-      main.style.top = "0px";
-      main.style.bottom = "0px";
-      main.style.height = "100%";
-    }
   }, [screen]);
 
   useEffect(() => {
+    const typing = () => {
+      const ae = document.activeElement as HTMLElement | null;
+      if (ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) return true;
+      return Boolean(document.querySelector("input:focus, textarea:focus"));
+    };
     const field = (t: EventTarget | null) => {
+      if (typing()) return true;
       const el = t as HTMLElement | null;
-      return !!el?.closest?.("input, textarea, [contenteditable='true']");
+      if (!el?.closest) return false;
+      return Boolean(el.closest("input, textarea, [contenteditable='true'], [data-field], label"));
     };
     const clear = () => {
-      const ae = document.activeElement as HTMLElement | null;
-      if (ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) return;
+      if (typing()) return;
       const sel = window.getSelection();
       if (sel && (sel.rangeCount || String(sel))) sel.removeAllRanges();
     };
@@ -88,7 +119,7 @@ export function ArmyApp() {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(pulse);
       const el = e.target as HTMLElement;
-      const onBtn = !!el.closest?.("button, [role='button'], a, canvas, label");
+      const onBtn = !!el.closest?.("button, [role='button'], a");
       if (onBtn && e.cancelable && e.type === "mousedown") e.preventDefault();
     };
     const up = () => {
@@ -148,8 +179,17 @@ export function ArmyApp() {
       <Karma />
     ) : screen === "stats" ? (
       <StatsScreen />
+    ) : screen === "maps" ? (
+      <MapPick />
     ) : screen === "front" ? (
       <Front />
+    ) : screen === "fpv" ? (
+      <GameApp
+        onExit={() => {
+          useArmy.getState().clearFpvTicket();
+          useArmy.getState().go("hq");
+        }}
+      />
     ) : (
       <Hq />
     );
@@ -246,7 +286,7 @@ function Boot() {
       onClick={() => {
         if (!ready) return;
         click();
-        go(onboarded ? "front" : "register");
+        go(onboarded ? combatScreen() : "register");
       }}
     >
       <p className="text-center text-[11px] tracking-[0.38em] text-muted uppercase">{copy.brand}</p>
@@ -271,7 +311,6 @@ function Register() {
   const setLang = useArmy((s) => s.setLang);
   const go = useArmy((s) => s.go);
   const langs: Lang[] = ["ua", "en", "ru", "pl"];
-  const [kb, setKb] = useState(false);
 
   const next = () => {
     if (callsign.trim().length < 2) return;
@@ -282,13 +321,13 @@ function Register() {
 
   return (
     <div
-      className="relative z-10 h-full overflow-x-hidden overflow-y-auto px-5"
+      className="relative z-10 h-full overflow-hidden px-5"
       style={{
-        paddingTop: "max(3.25rem, env(safe-area-inset-top))",
-        paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))",
+        paddingTop: "max(2.5rem, env(safe-area-inset-top))",
+        paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
       }}
     >
-      <div className={`mx-auto flex min-h-full w-full max-w-[22rem] flex-col ${kb ? "justify-start pt-2" : "justify-center"}`}>
+      <div className="mx-auto flex h-full w-full max-w-[22rem] flex-col justify-start pt-1">
         <form
           className="flex w-full flex-col"
           onSubmit={(e) => {
@@ -296,88 +335,76 @@ function Register() {
             next();
           }}
         >
-        <HeaderMark />
-        <h1 className="mt-5 text-center text-[1.65rem] font-semibold tracking-[0.18em] uppercase">{copy.register}</h1>
-        <Rule className="mx-auto mt-4 w-20" />
+          <HeaderMark />
+          <h1 className="mt-4 text-center text-[1.65rem] font-semibold tracking-[0.18em] uppercase">{copy.register}</h1>
+          <Rule className="mx-auto mt-3 w-20" />
 
-        <label className="relative mt-8 block">
-          <span className="absolute -top-2 left-3 z-10 bg-bg px-1.5 text-[10px] tracking-[0.22em] text-muted uppercase">
-            {copy.callsign}
-          </span>
-          <span className="flex h-12 items-center chalk-border pl-4 pr-3">
-            <Ic.IconRadio size={22} className="shrink-0 text-muted" />
-            <span className="relative ml-3 min-h-12 min-w-0 flex-1 self-stretch">
-              {!callsign && (
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 flex items-center text-[16px] leading-[48px] tracking-[0.16em] text-subtle"
-                >
-                  ————
-                </span>
-              )}
-              <input
-                value={callsign}
-                onChange={(e) => setCallsign(e.target.value)}
-                onFocus={(e) => {
-                  setKb(true);
-                  requestAnimationFrame(() => e.currentTarget.scrollIntoView({ block: "center", behavior: "auto" }));
-                }}
-                onBlur={() => setKb(false)}
-                maxLength={16}
-                name="cs"
-                className="cs-input"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="characters"
-                spellCheck={false}
-                enterKeyHint="done"
-                inputMode="text"
-              />
+          <div className="relative mt-6" data-field="cs">
+            <span className="absolute -top-2 left-3 z-10 bg-bg px-1.5 text-[10px] tracking-[0.22em] text-muted uppercase">
+              {copy.callsign}
             </span>
-          </span>
-        </label>
+            <span className="pointer-events-none absolute left-4 top-0 z-[1] flex h-12 w-7 items-center text-muted">
+              <Ic.IconRadio size={22} />
+            </span>
+            <input
+              value={callsign}
+              onChange={(e) => setCallsign(e.target.value.replace(/[\n\r]/g, ""))}
+              onFocus={() => {
+                window.scrollTo(0, 0);
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+              }}
+              maxLength={16}
+              name="callsign"
+              id="callsign"
+              className="cs-input chalk-border"
+              placeholder="————"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              enterKeyHint="done"
+              inputMode="text"
+            />
+          </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            click();
-            go("gear");
-          }}
-          className="mt-3 flex h-12 items-center justify-between chalk-border px-4"
-        >
-          <span className="flex items-center gap-3">
-            <Ic.IconHelm size={22} className="text-muted" />
-            <span className="text-base tracking-[0.2em] uppercase">{copy.profile}</span>
-          </span>
-          <span className="text-xl leading-none text-muted">›</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => {
+              click();
+              go("gear");
+            }}
+            className="mt-3 flex h-12 items-center justify-between chalk-border px-4"
+          >
+            <span className="flex items-center gap-3">
+              <Ic.IconHelm size={22} className="text-muted" />
+              <span className="text-base tracking-[0.2em] uppercase">{copy.profile}</span>
+            </span>
+            <span className="text-xl leading-none text-muted">›</span>
+          </button>
 
-        {!kb && (
-          <>
-            <p className="mt-7 text-center text-[10px] tracking-[0.28em] text-muted uppercase">{copy.pickLang}</p>
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              {langs.map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => {
-                    click();
-                    setLang(code);
-                  }}
-                  className={`flex h-12 items-center justify-center text-sm tracking-[0.2em] ${
-                    lang === code ? "chalk-border bg-fg/5" : "border border-fg/20"
-                  }`}
-                >
-                  {copy.langs[code]}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+          <p className="mt-5 text-center text-[10px] tracking-[0.28em] text-muted uppercase">{copy.pickLang}</p>
+          <div className="mt-2 grid grid-cols-4 gap-2">
+            {langs.map((code) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => {
+                  click();
+                  setLang(code);
+                }}
+                className={`flex h-12 items-center justify-center text-sm tracking-[0.2em] ${
+                  lang === code ? "chalk-border bg-fg/5" : "border border-fg/20"
+                }`}
+              >
+                {copy.langs[code]}
+              </button>
+            ))}
+          </div>
 
-        <ChalkBtn tone="ghost" className="mt-6 h-12 w-full text-base" disabled={callsign.trim().length < 2} onClick={next}>
-          {copy.continue} →
-        </ChalkBtn>
+          <ChalkBtn tone="ghost" className="mt-5 h-12 w-full text-base" disabled={callsign.trim().length < 2} onClick={next}>
+            {copy.continue} →
+          </ChalkBtn>
         </form>
       </div>
     </div>
@@ -558,6 +585,13 @@ function KitFigure({
 }) {
   const kind = unit === "tank" ? "tank" : unit === "drone" || role === "drone" ? "drone" : "soldier";
   const on = (id: GearId) => onGear(gear[id]);
+  const sit = on("helm") && on("armor")
+    ? "/sprites/gear/sit-full.png"
+    : on("helm")
+      ? "/sprites/gear/sit-helm.png"
+      : on("armor")
+        ? "/sprites/gear/sit-armor.png"
+        : "/sprites/gear/sit-base.png";
   return (
     <div className="pointer-events-none relative mx-auto h-full min-h-72 w-full max-w-[13rem]">
       {kind === "tank" ? (
@@ -585,40 +619,26 @@ function KitFigure({
         </>
       ) : (
         <>
-          <img src="/sprites/gear/sit-base.png" alt="" className="absolute inset-0 h-full w-full object-contain" />
+          <img src={sit} alt="" className="absolute inset-0 h-full w-full object-contain" />
+          {on("radio") && sit === "/sprites/gear/sit-base.png" && (
+            <img
+              src="/sprites/kit-radio.png"
+              alt=""
+              className="absolute top-[36%] right-[0%] h-[18%] w-[24%] object-contain"
+            />
+          )}
           {on("pack") && (
             <img
-              src="/sprites/wear-pack.png"
+              src="/sprites/kit-pack.png"
               alt=""
-              className="absolute top-[46%] right-[-4%] h-[30%] w-[40%] object-contain"
-            />
-          )}
-          {on("armor") && (
-            <img
-              src="/sprites/wear-armor.png"
-              alt=""
-              className="absolute top-[24%] left-[18%] h-[26%] w-[52%] object-contain"
-            />
-          )}
-          {(on("helm") || on("armor")) && (
-            <img
-              src="/sprites/wear-boots.png"
-              alt=""
-              className="absolute bottom-[1%] left-[6%] h-[18%] w-[58%] object-contain"
-            />
-          )}
-          {on("radio") && (
-            <img
-              src="/sprites/wear-radio.png"
-              alt=""
-              className="absolute top-[32%] right-[4%] h-[16%] w-[24%] object-contain"
+              className="absolute top-[50%] right-[-6%] h-[24%] w-[32%] object-contain"
             />
           )}
           {on("roleItem") && (
             <img
               src="/sprites/kit-medic.png"
               alt=""
-              className="absolute bottom-[16%] right-[-2%] h-[22%] w-[30%] object-contain"
+              className="absolute bottom-[12%] right-[-4%] h-[20%] w-[28%] object-contain"
             />
           )}
           {on("public") && (
@@ -626,13 +646,6 @@ function KitFigure({
               src="/sprites/kit-pack.png"
               alt=""
               className="absolute bottom-[8%] left-[-6%] h-[20%] w-[28%] object-contain opacity-90"
-            />
-          )}
-          {on("helm") && (
-            <img
-              src="/sprites/wear-helm.png"
-              alt=""
-              className="absolute top-[0%] left-[26%] h-[22%] w-[38%] object-contain"
             />
           )}
         </>
@@ -705,6 +718,63 @@ function UnitPick() {
           }}
         >
           {copy.continue} →
+        </ChalkBtn>
+      </div>
+      <FooterArt />
+    </Scroll>
+  );
+}
+
+function MapPick() {
+  const copy = useT();
+  const mapId = useArmy((s) => s.mapId);
+  const setMap = useArmy((s) => s.setMap);
+  const go = useArmy((s) => s.go);
+  return (
+    <Scroll>
+      <p className="text-center text-[11px] tracking-[0.3em] text-muted uppercase">{copy.brand}</p>
+      <h1 className="mt-3 text-center text-2xl font-semibold tracking-[0.14em] uppercase">{copy.mapTitle}</h1>
+      <p className="mt-2 text-center text-sm text-muted">{copy.mapSub}</p>
+      <div className="mt-5 grid grid-cols-2 gap-2">
+        {MAPS.map((m) => {
+          const meta = copy.maps[m.id];
+          const on = mapId === m.id;
+          return (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => {
+                click();
+                if (on) {
+                  go("front");
+                  return;
+                }
+                setMap(m.id);
+              }}
+              className={`flex flex-col overflow-hidden text-left ${on ? "chalk-border bg-fg/5" : "border border-fg/25"}`}
+            >
+              <img src={m.art} alt="" className="h-24 w-full bg-black object-cover" draggable={false} />
+              <span className="flex min-w-0 flex-1 flex-col px-2 py-2">
+                <span className="text-[9px] tracking-[0.22em] text-muted uppercase">
+                  {String(m.n).padStart(2, "0")}
+                </span>
+                <span className="mt-0.5 text-sm font-semibold tracking-[0.12em] uppercase">{meta.name}</span>
+                <span className="mt-0.5 text-[11px] leading-snug text-muted">{meta.blurb}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-5 grid grid-cols-2 gap-3 pb-4">
+        <ChalkBtn onClick={() => go("hq")}>{copy.back}</ChalkBtn>
+        <ChalkBtn
+          tone="solid"
+          onClick={() => {
+            click();
+            go("front");
+          }}
+        >
+          {copy.toFront} →
         </ChalkBtn>
       </div>
       <FooterArt />
@@ -849,6 +919,7 @@ function Hq() {
   const setTab = useArmy((s) => s.setTab);
   const go = useArmy((s) => s.go);
   const mail = useArmy((s) => s.mail);
+  const points = useArmy((s) => s.points);
   const [menu, setMenu] = useState(false);
   const tabs = ["situation", "gear", "squad", "mission", "dossier"] as const;
 
@@ -881,10 +952,23 @@ function Hq() {
           className="flex h-10 shrink-0 items-center px-2 text-[11px] tracking-[0.16em] uppercase"
           onClick={() => {
             click();
-            go("front");
+            go(combatScreen());
           }}
         >
           {copy.toFront}
+        </button>
+        <button
+          type="button"
+          aria-label="fpv"
+          className={`flex h-10 shrink-0 items-center px-2 text-[11px] tracking-[0.16em] uppercase ${
+            points >= FPV_COST ? "text-boost" : "text-muted"
+          }`}
+          onClick={() => {
+            click();
+            launchFpv();
+          }}
+        >
+          {copy.toFpv}
         </button>
         <button type="button" aria-label="settings" className="relative size-10 text-fg" onClick={() => setMenu((v) => !v)}>
           <Settings className="mx-auto size-4" strokeWidth={1.6} />
@@ -926,10 +1010,20 @@ function SettingsSheet({ onClose }: { onClose: () => void }) {
         onClick={() => {
           click();
           onClose();
-          go("front");
+          go(combatScreen());
         }}
       >
         {copy.toFront}
+      </ChalkBtn>
+      <ChalkBtn
+        className="mt-2 w-full"
+        onClick={() => {
+          click();
+          onClose();
+          launchFpv();
+        }}
+      >
+        {copy.toFpv}
       </ChalkBtn>
       <ChalkBtn
         className="mt-2 w-full"
@@ -971,12 +1065,15 @@ function Situation() {
   const go = useArmy((s) => s.go);
   const callsign = useArmy((s) => s.callsign);
   const picked = useArmy((s) => s.unit);
+  const points = useArmy((s) => s.points);
+  const mapId = useArmy((s) => s.mapId);
   const recent = messages.slice(-3);
   return (
     <div className="mx-auto grid max-w-6xl gap-3 p-3 md:grid-cols-3">
       <Panel className="min-h-52">
         <Globe />
         <p className="mt-3 text-center text-[11px] tracking-[0.2em] uppercase">{copy.map}</p>
+        <p className="mt-1 text-center text-sm tracking-[0.14em] uppercase">{copy.maps[mapId].name}</p>
         <div className="mt-2 flex justify-center gap-4 text-[10px] tracking-wider text-muted uppercase">
           <span>■ {copy.opsZone}</span>
           <span>⊕ {copy.lz}</span>
@@ -1029,9 +1126,23 @@ function Situation() {
             </span>
           </p>
         </div>
-        <ChalkBtn className="mt-4 w-full" tone="solid" onClick={() => go("front")}>
+        <ChalkBtn className="mt-4 w-full" tone="solid" onClick={() => go(combatScreen())}>
           {copy.toFront} →
         </ChalkBtn>
+        <div className="mt-3">
+          <div className="flex justify-between text-[10px] tracking-wider text-muted uppercase">
+            <span>{copy.points}</span>
+            <span className="tabular-nums">
+              {points}/{FPV_COST}
+            </span>
+          </div>
+          <div className="mt-1 h-1.5 bg-fg/15">
+            <div className="h-full bg-boost" style={{ width: `${Math.min(100, (points / FPV_COST) * 100)}%` }} />
+          </div>
+          <p className="mt-1 text-center text-[10px] tracking-wide text-muted">
+            {points >= FPV_COST ? copy.fpvReady : copy.fpvNeed}
+          </p>
+        </div>
       </Panel>
     </div>
   );
